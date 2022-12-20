@@ -59,28 +59,31 @@ architecture architecture_lcd_driver4 of lcd_driver4 is
         RED, GREEN, BLUE, WHITE
     );
 
-    type gen_mem is array (0 to 14) of unsigned(7 downto 0);
-    signal send_mem : gen_mem;
+    type mem_piece is array(0 to 1) of unsigned(7 downto 0);
+    type init_rom is array(0 to 14) of mem_piece;
+    constant init_bytes : init_rom := (others => (x"00",x"00"));
+
+    type pixel_mem is array (0 to 12) of mem_piece;
+    signal send_mem : pixel_mem;
     signal send_mem_idx : unsigned(7 downto 0);
     signal bytes_sent : unsigned(15 downto 0);
     signal lcd_wr_buf : std_logic;
     signal lcd_ready_buf : std_logic;
 
 begin
-    led2_debug<='0';
-    led3_debug<=clk_in;
-    lcd_d <= std_logic_vector(send_mem(conv_integer(send_mem_idx)));
+    led2_debug <= '0';
+    led3_debug <= clk_in;
     lcd_wr <= lcd_wr_buf;
     lcd_ready <= lcd_ready_buf;
     lcd_rst <= reset_in;
 
-    send_mem(0) <= x"3a";
-    send_mem(1) <= x"05";
-    send_mem(2) <= x"2a";
-    send_mem(7) <= x"2b";
-    send_mem(12) <= x"2c";
-    send_mem(13) <= color_array(conv_integer(color_in))(0);
-    send_mem(14) <= color_array(conv_integer(color_in))(1);
+    -- send_mem(0) <= x"3a";
+    -- send_mem(1) <= x"05";
+    send_mem(0) <= (x"2a",x"00");
+    send_mem(5) <= (x"2b",x"00");
+    send_mem(10) <= (x"2c",x"00");
+    send_mem(11) <= (color_array(conv_integer(color_in))(0),x"01");
+    send_mem(12) <= (color_array(conv_integer(color_in))(1),x"01");
 
     coord_set_proc: process(x_in,y_in)
         variable start_col : unsigned(15 downto 0) := x"0000";
@@ -92,14 +95,14 @@ begin
         end_col := start_col + 20;
         start_page := y_in * conv_unsigned(20,8);
         end_page := start_page + 20;
-        send_mem(3) <= start_col(15 downto 8);
-        send_mem(4) <= start_col(7 downto 0);
-        send_mem(5) <= end_col(15 downto 8);
-        send_mem(6) <= end_col(7 downto 0);
-        send_mem(8) <= start_page(15 downto 8);
-        send_mem(9) <= start_page(7 downto 0);
-        send_mem(10) <= end_page(15 downto 8);
-        send_mem(11) <= end_page(7 downto 0);
+        send_mem(3) <= (start_col(15 downto 8),x"01");
+        send_mem(4) <= (start_col(7 downto 0),x"01");
+        send_mem(5) <= (end_col(15 downto 8),x"01");
+        send_mem(6) <= (end_col(7 downto 0),x"01");
+        send_mem(8) <= (start_page(15 downto 8),x"01");
+        send_mem(9) <= (start_page(7 downto 0),x"01");
+        send_mem(10) <= (end_page(15 downto 8),x"01");
+        send_mem(11) <= (end_page(7 downto 0),x"01");
     end process coord_set_proc;
 
     state_sync_proc: process(clk_in,reset_in)
@@ -131,6 +134,7 @@ begin
     begin
         case PS is
             when LD =>
+                lcd_d <= std_logic_vector(send_mem(conv_integer(send_mem_idx)));
                 led1_debug <= '1';
                 lcd_wr_buf <= '0';
                 lcd_ready_buf <= '0';
@@ -141,12 +145,16 @@ begin
                 end if;
 
             when WR =>
+                lcd_d <= std_logic_vector(send_mem(conv_integer(send_mem_idx)));
                 led1_debug <= '1';
                 lcd_wr_buf <= '1';
                 lcd_ready_buf <= '0';
                 NS <= LD;
-
+            
+            when LD_INIT =>
+                
             when SPAM_STOP =>
+                lcd_d <= x"00";
                 led1_debug <= '0';
                 lcd_wr_buf <= '0';
                 lcd_ready_buf <= '1';
@@ -157,6 +165,7 @@ begin
                 end if;
 
             when others =>
+                lcd_d <= x"00";
                 led1_debug <= '1';
                 lcd_wr_buf <= '0';
                 lcd_ready_buf <= '1';
