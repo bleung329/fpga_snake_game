@@ -1,0 +1,50 @@
+entity lcd_driver
+x_in unsigned [ 7 : 0 ]
+y_in unsigned [ 7 : 0 ]
+color_in unsigned [ 3 : 0 ]
+end
+entity random_food_gen
+x_out unsigned [ 7 : 0 ]
+y_out unsigned [ 7 : 0 ]
+end
+entity game_logic
+food_coord_x unsigned [ 7 : 0 ]
+food_coord_y unsigned [ 7 : 0 ]
+x_out unsigned [ 7 : 0 ]
+y_out unsigned [ 7 : 0 ]
+color_out unsigned [ 3 : 0 ]
+end
+entity lcd_driver2
+x_in unsigned [ 7 : 0 ]
+y_in unsigned [ 7 : 0 ]
+color_in unsigned [ 3 : 0 ]
+end
+entity lcd_driver2
+x_in unsigned [ 7 : 0 ]
+y_in unsigned [ 7 : 0 ]
+color_in unsigned [ 1 : 0 ]
+end
+entity lcd_driver2
+x_in unsigned [ 7 : 0 ]
+y_in unsigned [ 7 : 0 ]
+color_in unsigned [ 1 : 0 ]
+end
+entity lcd_driver4
+x_in unsigned [ 7 : 0 ]
+y_in unsigned [ 7 : 0 ]
+color_in unsigned [ 1 : 0 ]
+end
+entity game_logic
+food_coord_x unsigned [ 7 : 0 ]
+food_coord_y unsigned [ 7 : 0 ]
+x_out unsigned [ 7 : 0 ]
+y_out unsigned [ 7 : 0 ]
+color_out unsigned [ 3 : 0 ]
+end
+entity game_logic
+food_coord_x unsigned [ 7 : 0 ]
+food_coord_y unsigned [ 7 : 0 ]
+x_out unsigned [ 7 : 0 ]
+y_out unsigned [ 7 : 0 ]
+color_out unsigned [ 1 : 0 ]
+end
