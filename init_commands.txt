@@ -152,19 +152,31 @@ Reset and Setup
     Place food
     Wait for the start button to get into the first state
 Start
+
 Loop per game tick
-    Check buttons
-        If rising edge on left button, change head delta accordingly, clear on next game tick
-        If rising edge on right button, change head delta accordingly.
-    Check head
-        if on snake part or past walls,
-            lose state / idle state
-        if on food,
-            snake length increase, dont delete tail
-        else
-            do nothing, delete tail             tail = snake_array(snake_length)
-    Move head
+    
+    Move head state
+        reset changed flag to down.
         move all memory backwards,
         take head of snake array, and add head delta, move to front of snake array.
+        write green to new head in graphics queue
 
-    
+    Check head state
+        if on food,
+            snake length increase, dont delete tail
+            Go to load new food state
+                get random food
+                if random food is not good,
+                    go to get new food state again
+            write red to random food in graphics queue
+        elsif on snake part or past walls,
+            jump to lose state
+        else
+            do nothing             tail = snake_array(snake_length)
+            write white to the tail in graphics queue
+
+    Game delay/input state, repeat until good:
+
+    Check buttons, if there's a rising edge and changed flag isnt up
+        If rising edge on left button, change head delta accordingly.
+        If rising edge on right button, change head delta accordingly.
