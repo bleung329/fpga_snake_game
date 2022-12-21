@@ -143,3 +143,28 @@
 
     P2OUT |= (LCD_CS);
     delay_ms(100);
+
+
+#Planning for the game logic
+Reset and Setup
+    Setup LCD
+    Draw walls
+    Place food
+    Wait for the start button to get into the first state
+Start
+Loop per game tick
+    Check buttons
+        If rising edge on left button, change head delta accordingly, clear on next game tick
+        If rising edge on right button, change head delta accordingly.
+    Check head
+        if on snake part or past walls,
+            lose state / idle state
+        if on food,
+            snake length increase, dont delete tail
+        else
+            do nothing, delete tail             tail = snake_array(snake_length)
+    Move head
+        move all memory backwards,
+        take head of snake array, and add head delta, move to front of snake array.
+
+    
