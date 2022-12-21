@@ -48,3 +48,13 @@ x_out unsigned [ 7 : 0 ]
 y_out unsigned [ 7 : 0 ]
 color_out unsigned [ 1 : 0 ]
 end
+entity lcd_driver4
+x_in unsigned [ 7 : 0 ]
+y_in unsigned [ 7 : 0 ]
+color_in unsigned [ 1 : 0 ]
+end
+entity lcd_driver4
+x_in unsigned [ 7 : 0 ]
+y_in unsigned [ 7 : 0 ]
+color_in unsigned [ 1 : 0 ]
+end

@@ -1,0 +1,145 @@
+ write_command(0xE0);     //  positive gamma control
+  write_data(0x00);
+  write_data(0x04);
+  write_data(0x0E);
+  write_data(0x08);
+  write_data(0x17);
+  write_data(0x0A);
+  write_data(0x40);
+  write_data(0x79);
+  write_data(0x4D);
+  write_data(0x07);
+  write_data(0x0E);
+  write_data(0x0A);
+  write_data(0x1A);
+  write_data(0x1D);
+  write_data(0x0F);
+
+  write_command(0xE1);     //  Negative gamma control
+  write_data(0x00);
+  write_data(0x1B);
+  write_data(0x1F);
+  write_data(0x02);
+  write_data(0x10);
+  write_data(0x05);
+  write_data(0x32);
+  write_data(0x34);
+  write_data(0x43);
+  write_data(0x02);
+  write_data(0x0A);
+  write_data(0x09);
+  write_data(0x33);
+  write_data(0x37);
+  write_data(0x0F);
+
+  write_command(0xC0);     // power control 1 //Handles gamma stuff
+  write_data(0x18);
+  write_data(0x16);
+
+  write_command(0xC1);     // power control 2 //Power consumption stuff?
+  write_data(0x41);
+
+  write_command(0xC5);     // vcom control //VCOM voltage stuff?
+  write_data(0x00);
+  write_data(0x1E);       // VCOM
+  write_data(0x80);
+
+  write_command(0x36);     // madctrl - memory access control //Scanning order of image?
+  write_data(0x48);       // bgr connection and colomn address order
+
+  0x3A     // Interface Pixel Control command
+  0x55       // 16BIT
+
+  write_command(0xB1);     // Frame rate 60HZ
+  write_data(0xB0);
+
+  write_command(0xE9);     // set image function //Disable 24 bit
+  write_data(0x00);       // DB_EN off - 24 bit is off
+
+  write_command(0xF7);     // adjust control 3 //Something related to DSI, dont enable?
+  write_data(0xA9);
+  write_data(0x51);
+  write_data(0x2C);
+  write_data(0x82);
+
+  write_command(0xB0);     // Interface Mode Control //Something related to the Interface Mode control, dont forget
+  write_data(0x02);       // set DE,HS,VS,PCLK polarity
+
+  write_command(0xB6); //Something about the RGB interface?
+
+  write_data(0x30);       // 30 set rgb
+  write_data(0x02);       // GS,SS 02£¬42
+  write_data(0x3B);
+
+  write_command(0x11);     // sleep out command
+
+  delay(120);
+
+  write_command(0x29);     // display on command
+
+#Try 1
+    (x"3a",x"00"),
+    (x"55",x"01"),
+    (x"e9",x"00"),
+    (x"00",x"01"),
+    (x"11",x"00"),
+    (x"29",x"00")
+
+#Try 2
+    (x"01",x"00"),
+    (x"11",x"00"),
+    (x"3a",x"00"),
+    (x"55",x"01"),
+    (x"29",x"00")
+
+    // reset LCD
+    P2OUT &= (~LCD_RST);
+    delay_ms(100);
+    P2OUT |= (LCD_RST);
+
+    // software reset
+    send_command(0x01);
+    delay_ms(100);
+
+    // sleep out
+    send_command(0x11);
+    delay_ms(100);
+
+    // memory acces control
+    send_command(0x36);
+    send_data(0xE8);
+    delay_ms(100);
+
+    // set dbi
+    send_command(0x3A);
+    send_data(0x06);
+    delay_ms(100);
+
+    // partial mode on
+    send_command(0x12);
+    delay_ms(100);
+
+    // display on
+    send_command(0x29);
+    delay_ms(100);
+
+    // set brightness
+    send_command(0x51);
+    send_data(0x0F);
+    delay_ms(100);
+
+    // set brightness control
+    send_command(0x53);
+    send_data(0x2C);
+    delay_ms(100);
+
+    // set framerate
+    send_command(0xB1);
+    send_data(0xB0);
+    send_data(0x11);
+    delay_ms(50);
+
+    set_bgcolor(0, 0, 0);
+
+    P2OUT |= (LCD_CS);
+    delay_ms(100);
