@@ -24,7 +24,7 @@ use IEEE.std_logic_arith.all;
 entity lcd_driver4 is
 generic (
     g_init_instructions : integer := 6;
-    g_clk_div : integer := 50000
+    g_clk_div : integer := 51000
 );
 port (
     x_in : IN unsigned(7 downto 0);
@@ -47,7 +47,7 @@ end entity lcd_driver4;
 
 architecture architecture_lcd_driver4 of lcd_driver4 is
 
-    type state_type is (IDLE,LD,WR,SPAM_STOP,LD_INIT,WR_INIT);
+    type state_type is (IDLE,LD,WR,SPAM_STOP,RST_INIT,LD_INIT,WR_INIT);
     signal PS : state_type;
     signal NS : state_type;
 
@@ -206,6 +206,10 @@ begin
                 else
                     NS <= IDLE;
                 end if;
+            
+            when RST_INIT =>
+                slow_clk_sel <= '1';
+                NS <= LD_INIT;
 
             when LD_INIT =>
                 slow_clk_sel <= '1';

@@ -45,9 +45,10 @@ port (
 end game_logic;
 
 architecture architecture_game_logic of game_logic is
-   type state_type is (IDLE, RESET_LOAD, RESET_SEND, 
+   --Split RESET into RESET_LCD, RESET_GAME_BOARD, RESET_SNAKE, NEW_FOOD
+   type state_type is (IDLE, RESET_LCD, RESET_GB, RESET_GB_SEND, RESET_SNAKE, RESET_SNAKE_SEND, 
                      MOVE_HEAD, SEND_HEAD, CHECK_HEAD, ERASE_TAIL, 
-                     NEW_FOOD, NEW_FOOD_CHECK, NEW_FOOD_SEND, 
+                     ADD_LENGTH, NEW_FOOD, NEW_FOOD_CHECK, NEW_FOOD_SEND, 
                      DELAY_INPUT, WIN, LOSE);
    signal PS : state_type;
    signal NS : state_type;
@@ -64,12 +65,15 @@ architecture architecture_game_logic of game_logic is
    constant direction_list : direction_list_type := (UP,LEFT,DOWN,RIGHT);
    signal direction : coord_type;
    signal direction_changed : std_logic;
+   signal reset_dir : std_logic;
    
    type snake_array_type is array(0 to max_snake_length-1) of coord_type;
    signal food_coord : coord_type;
    signal snake_array : snake_array_type;
    signal snake_length : integer;
 
+   type snake_init_array_type is array(0 to 2) of coord_type;
+   constant snake_init_array : snake_init_array_type := ((3,3),(3,2),(3,1));
 begin
    button_pressed <= button_l xor button_r;
 
@@ -77,17 +81,22 @@ begin
    begin
    --If the reset button is hit, start the entire reset process.
    if (button_s = '1') then
-      PS <= RESET_LOAD;
+      --TODO: Setup reset process
+      PS <= RESET_LCD;
    elsif rising_edge(clk_in) then
       
       if (PS = MOVE_HEAD) then
          --Shift the array to the right 
-         shift_loop: for i in 1 to snake_length loop
+         snake_shift_loop: for i in 1 to snake_length loop
             snake_array(i+1) <= snake_array(i);
-         end loop shift_loop;
+         end loop snake_shift_loop;
          --Calculate new head
          snake_array(0)(0) <= snake_array(0)(0) + direction(0);
          snake_array(0)(1) <= snake_array(0)(1) + direction(1);
+      end if;
+
+      if (PS = ADD_LENGTH) then
+         snake_length <= snake_length + 1;
       end if;
 
       if (PS = DELAY_INPUT) then
@@ -99,28 +108,33 @@ begin
       -- Only move to the next state if the lcd is finished drawing/setting up/etc.
       if (lcd_ready_in = '1') then
          PS <= NS;
-         --Do nothing
       end if;
    end if;
    end process sync_proc;
 
    comb_proc : process(PS)
       variable snake_hit : std_logic := '0';
+      variable food_hit : std_logic := '0';
    begin
       case PS is
          when IDLE =>
             send_draw_out <= '0';
             NS <= IDLE;    
-         when RESET_LOAD =>
+         when RESET_LCD =>
+            reset_dir <= '1';
             send_draw_out <= '0';
-            NS <= RESET_SEND;
-         when RESET_SEND =>
+            NS <= RESET_GB;
+         when RESET_GB =>
+            send_draw_out <= '0';
+            NS <= RESET_GB_SEND
+         when RESET_GB_SEND =>
             send_draw_out <= '1';
-            NS <= RESET_LOAD;
+            NS <= RESET_GB;
          when MOVE_HEAD =>
+            reset_dir <= '0';
             direction_changed <= '0';
             send_draw_out <= '0';
-            --Send new head to the 
+            --Send new head to the draw output
             x_draw_out <= conv_unsigned(snake_array(0)(0),8);
             y_draw_out <= conv_unsigned(snake_array(0)(1),8);
             -- Draw it green
@@ -131,50 +145,78 @@ begin
             NS <= CHECK_HEAD;
          when CHECK_HEAD =>
             send_draw_out <= '0';
-            --Setup the thing to erase the tail
+            --Setup the coordinate output to erase the tail
             x_draw_out <= conv_unsigned(snake_array(snake_length-1)(0),8);
             y_draw_out <= conv_unsigned(snake_array(snake_length-1)(1),8);
+            --Black, technically
             color_draw_out <= "11";
 
             --Check if there are collisions
-            for i in 1 to snake_length loop
+            snake_hit := '0';
+            snake_collision_check_loop : for i in 1 to snake_length-1 loop
+               --TODO: Can we possibly forgo the latter statement?
                if (snake_array(0)(0) = snake_array(i)(0) and 
                   snake_array(0)(1) = snake_array(i)(1)) then
                   snake_hit := snake_hit or '1';
                else
                   snake_hit := snake_hit or '0';
                end if;
-            end loop;
+            end loop snake_collision_check_loop;
 
-            --If on food,
+            --If on food, add length to the snake
             if (snake_array(0)(0) = food_coord(0) and snake_array(0)(1) = food_coord(1)) then
-               NS <= NEW_FOOD;
-            --Out of bounds and collision
+               NS <= ADD_LENGTH;
+            --If out of bounds or collision, lose
             elsif (snake_array(0)(0) = 0 or 
                   snake_array(0)(0) = 23 or 
                   snake_array(0)(1) = 0 or 
                   snake_array(0)(1) = 15 or snake_hit = '1') then
                NS <= LOSE;
-            --Nothing happened, erase the tail.
+            --Else, nothing happened, erase the tail.
             else
                NS <= ERASE_TAIL;
             end if;
+
          when ERASE_TAIL =>
             send_draw_out <= '1';
             NS <= DELAY_INPUT;
+         
+         when ADD_LENGTH =>
+            NS <= NEW_FOOD;
+
          when NEW_FOOD =>
             new_food_out <= '1';
             NS <= NEW_FOOD_CHECK;
+
          when NEW_FOOD_CHECK =>
             new_food_out <= '0';
+            
             food_coord(0) <= conv_integer(food_x_in);
             food_coord(1) <= conv_integer(food_y_in);
             x_draw_out <= food_x_in;
             y_draw_out <= food_y_in;
-            NS <= NEW_FOOD;
+            
+            --Ensure the new food placement doesnt land on a snake part. Else, ask for a new one.
+            food_hit := '0';
+            food_collision_check_loop : for i in 0 to snake_length-1 loop
+               if (conv_integer(food_x_in) = snake_array(i)(0) and 
+                  conv_integer(food_y_in) = snake_array(i)(1)) then
+                  food_hit := food_hit or '1';
+               else
+                  food_hit := food_hit or '0';
+               end if;
+            end loop food_collision_check_loop;
+
+            if (food_hit = '1') then 
+               NS <= NEW_FOOD;
+            else
+               NS <= NEW_FOOD_SEND;
+            end if;
+
          when NEW_FOOD_SEND =>
             send_draw_out <= '1';
             NS <= DELAY_INPUT;
+
          when DELAY_INPUT =>
             send_draw_out <= '0';
             if (time_since_start_of_cycle > time_to_wait) then
@@ -182,6 +224,7 @@ begin
             else
                NS <= DELAY_INPUT;
             end if;
+
          when WIN =>
             NS<=IDLE;
          when LOSE =>
@@ -192,10 +235,12 @@ begin
       end case;
    end process comb_proc;
 
-   direction_change_proc: process(PS,button_pressed)
+   direction_change_proc: process(PS,button_pressed,reset_dir)
    variable direction_idx : integer := 0;
    begin
-      if (rising_edge(button_pressed) and PS = DELAY_INPUT and direction_changed = '0') then 
+      if (reset_dir = '1') then
+         direction_idx := 0;
+      elsif (rising_edge(button_pressed) and PS = DELAY_INPUT and direction_changed = '0') then 
          if (button_r = '1') then
             direction_idx := direction_idx + 1;
             if (direction_idx > 3) then
@@ -209,7 +254,7 @@ begin
          end if;
          direction_changed <= '1';
       end if;
-      direction <= direction_list(direction_idx);
+   direction <= direction_list(direction_idx);
    end process direction_change_proc;
 
 end architecture_game_logic;
