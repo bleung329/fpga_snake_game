@@ -45,7 +45,7 @@ port (
 end game_logic;
 
 architecture architecture_game_logic of game_logic is
-   --Split RESET into RESET_LCD, RESET_GAME_BOARD, RESET_SNAKE, NEW_FOOD
+   --Split RESET into RESET_LCD, RESET_GB, RESET_SNAKE, NEW_FOOD
    type state_type is (IDLE, RESET_LCD, RESET_GB, RESET_GB_SEND, RESET_SNAKE, RESET_SNAKE_SEND, 
                      MOVE_HEAD, SEND_HEAD, CHECK_HEAD, ERASE_TAIL, 
                      ADD_LENGTH, NEW_FOOD, NEW_FOOD_CHECK, NEW_FOOD_SEND, 
@@ -55,6 +55,8 @@ architecture architecture_game_logic of game_logic is
    
    signal time_since_start_of_cycle : integer;
    signal button_pressed : std_logic;
+
+   signal setup_board_index : integer;
    
    type coord_type is array(0 to 1) of integer;
    type direction_list_type is array(0 to 3) of coord_type;
@@ -82,9 +84,22 @@ begin
    --If the reset button is hit, start the entire reset process.
    if (button_s = '1') then
       --TODO: Setup reset process
+      setup_board_index <= -1;
       PS <= RESET_LCD;
    elsif rising_edge(clk_in) then
       
+      if (PS = RESET_GB) then
+         setup_board_index <= setup_board_index + 1;
+         case expression is
+            when choice =>
+               
+         
+            when others =>
+               
+         
+         end case;
+      end if;
+
       if (PS = MOVE_HEAD) then
          --Shift the array to the right 
          snake_shift_loop: for i in 1 to snake_length loop
@@ -119,17 +134,28 @@ begin
       case PS is
          when IDLE =>
             send_draw_out <= '0';
-            NS <= IDLE;    
+            NS <= IDLE;
          when RESET_LCD =>
-            reset_dir <= '1';
             send_draw_out <= '0';
+            lcd_reset_out <= '1';
             NS <= RESET_GB;
          when RESET_GB =>
             send_draw_out <= '0';
-            NS <= RESET_GB_SEND
+            lcd_reset_out <= '0'; 
+            NS <= RESET_GB_SEND;
          when RESET_GB_SEND =>
             send_draw_out <= '1';
+            lcd_reset_out <= '0';
             NS <= RESET_GB;
+         when RESET_SNAKE =>
+            reset_dir <= '1';
+            lcd_reset_out <= '0';
+            NS <= RESET_SNAKE_SEND;
+         when RESET_SNAKE_SEND =>
+            send_draw_out <= '1';
+            lcd_reset_out <= '0';
+            NS <= RESET_GB;
+            NS <= NEW_FOOD;
          when MOVE_HEAD =>
             reset_dir <= '0';
             direction_changed <= '0';
@@ -182,6 +208,7 @@ begin
             NS <= DELAY_INPUT;
          
          when ADD_LENGTH =>
+            --Note: snake_length is incremented in the synchronous process.
             NS <= NEW_FOOD;
 
          when NEW_FOOD =>

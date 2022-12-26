@@ -23,8 +23,8 @@ use IEEE.std_logic_arith.all;
 
 entity lcd_driver4 is
 generic (
-    g_init_instructions : integer := 6;
-    g_clk_div : integer := 51000
+    g_init_instructions : integer := 8;
+    g_clk_div : integer := 65000
 );
 port (
     x_in : IN unsigned(7 downto 0);
@@ -66,6 +66,8 @@ architecture architecture_lcd_driver4 of lcd_driver4 is
     type init_rom is array(0 to g_init_instructions) of mem_piece;
     constant init_mem : init_rom := ((x"01",x"00"),
                                     (x"11",x"00"),
+                                    (x"36",x"00"),
+                                    (x"20",x"01"),
                                     (x"3a",x"00"),
                                     (x"55",x"01"),
                                     (x"29",x"00"),
@@ -87,7 +89,6 @@ begin
     -- led3_debug <= clk_in;
     lcd_wr <= lcd_wr_buf;
     lcd_ready <= lcd_ready_buf;
-    lcd_rst <= reset_in;
 
     send_mem(0) <= (x"2a",x"00");
     send_mem(5) <= (x"2b",x"00");
@@ -101,7 +102,7 @@ begin
         variable start_page : unsigned(15 downto 0) := x"0000";
         variable end_page : unsigned(15 downto 0) := x"0000";
     begin
-        start_col := x_in * conv_unsigned(20,8);
+        start_col := (conv_unsigned(23,8) - x_in) * conv_unsigned(20,8);
         end_col := start_col + 20;
         start_page := y_in * conv_unsigned(20,8);
         end_page := start_page + 20;
@@ -173,6 +174,7 @@ begin
                 led1_debug <= '0';
                 led2_debug <= '1';
                 led3_debug <= '1';
+                lcd_rst <= '1';
                 lcd_wr_buf <= '0';
                 lcd_ready_buf <= '0';
                 if (bytes_sent >= conv_unsigned(400,16)) then
@@ -189,6 +191,7 @@ begin
                 led2_debug <= '1';
                 led3_debug <= '1';
                 lcd_wr_buf <= '1';
+                lcd_rst <= '1';
                 lcd_ready_buf <= '0';
                 NS <= LD;
                 
@@ -200,16 +203,13 @@ begin
                 led2_debug <= '0';
                 led3_debug <= '1';
                 lcd_wr_buf <= '0';
+                lcd_rst <= '1';
                 lcd_ready_buf <= '1';
                 if (send_in = '1' or reset_in = '1') then
                     NS <= SPAM_STOP;
                 else
                     NS <= IDLE;
                 end if;
-            
-            when RST_INIT =>
-                slow_clk_sel <= '1';
-                NS <= LD_INIT;
 
             when LD_INIT =>
                 slow_clk_sel <= '1';
@@ -219,6 +219,7 @@ begin
                 led2_debug <= '1';
                 led3_debug <= '0';
                 lcd_wr_buf <= '0';
+                lcd_rst <= '1';
                 lcd_ready_buf <= '0';
                 if (sm_idx >= g_init_instructions) then
                     NS <= SPAM_STOP;
@@ -234,6 +235,7 @@ begin
                 led2_debug <= '1';
                 led3_debug <= '0';
                 lcd_wr_buf <= '1';
+                lcd_rst <= '1';
                 lcd_ready_buf <= '0';
                 NS <= LD_INIT;
                 
@@ -245,6 +247,7 @@ begin
                 led2_debug <= '1';
                 led3_debug <= '1';
                 lcd_wr_buf <= '0';
+                lcd_rst <= '1';
                 lcd_ready_buf <= '1';
                 NS <= IDLE;
         end case;

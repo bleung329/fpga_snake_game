@@ -19,7 +19,7 @@
 library IEEE;
 
 use IEEE.std_logic_1164.all;
-use IEEE.numeric_std.all;
+use IEEE.std_logic_arith.all;
 
 entity random_food_gen is
 port (
@@ -37,6 +37,7 @@ architecture architecture_random_food_gen of random_food_gen is
 	signal signal_name2 : std_logic_vector(1 downto 0) ; -- example
 
 begin
-
-   -- architecture body
+   -- Hold these constant for now.
+   x_out <= unsigned(10);
+   y_out <= unsigned(10);
 end architecture_random_food_gen;
