@@ -56,7 +56,8 @@ architecture architecture_game_logic of game_logic is
    signal time_since_start_of_cycle : integer;
    signal button_pressed : std_logic;
 
-   signal reset_gb_idx : integer;
+   signal reset_x_idx : integer;
+   signal reset_y_idx : integer;
    signal reset_snake_idx : integer;
    
    --Coordinates of everything
@@ -83,6 +84,8 @@ begin
    button_pressed <= button_l xor button_r;
 
    sync_proc: process(clk_in,button_s)
+      variable reset_x_temp_idx : integer := 0;
+      variable reset_y_temp_idx : integer := 0;
    begin
    --If the reset button is hit, start the reset process.
    if (button_s = '1') then
@@ -95,7 +98,10 @@ begin
       end loop snake_reset_for_loop;
 
       --Set initial indices for game board and snake index
-      reset_gb_idx <= 0;
+      reset_x_idx <= 0;
+      reset_y_idx <= 0;
+      reset_x_temp_idx <= 0;
+      reset_y_temp_idx <= 0;
       reset_snake_idx <= 0;
       PS <= RESET_LCD;
 
@@ -103,7 +109,13 @@ begin
       
       case PS is
          when RESET_GB_INC =>
-            reset_gb_idx <= reset_gb_idx + 1;
+            reset_x_temp_idx := reset_x_temp_idx + 1;
+            if (reset_x_temp_idx > 23) then
+               reset_x_temp_idx := 0;
+               reset_y_temp_idx := reset_y_temp_idx + 1;
+            end if;
+            reset_x_idx <= reset_x_temp_idx;
+            reset_y_idx <= reset_y_temp_idx;
 
          when RESET_SNAKE_INC =>
             reset_snake_idx <= reset_snake_idx + 1;
@@ -119,8 +131,14 @@ begin
 
          when ADD_LENGTH =>
             snake_length <= snake_length + 1;
+         
          when DELAY_INPUT =>
             time_since_start_of_cycle <= time_since_start_of_cycle + 1;
+
+         when NEW_FOOD_CHECK =>
+            food_coord(0) <= conv_integer(food_x_in);
+            food_coord(1) <= conv_integer(food_y_in);
+
          when others =>
             time_since_start_of_cycle <= 0;
       end case;
@@ -136,6 +154,24 @@ begin
    color_draw_out_proc: process(PS)
    begin
       case PS is
+         when RESET_GB =>
+            if reset_x_idx = 0 or 
+               reset_x_idx = 23 or 
+               reset_y_idx = 0 or
+               reset_y_idx = 15 then
+               color_draw_out <= "10";
+            else
+               color_draw_out <= "00";
+            end if;
+         when RESET_GB_SEND =>
+            if reset_x_idx = 0 or 
+               reset_x_idx = 23 or 
+               reset_y_idx = 0 or
+               reset_y_idx = 15 then
+               color_draw_out <= "10";
+            else
+               color_draw_out <= "00";
+            end if;
          when MOVE_HEAD =>
             color_draw_out <= "01";
          when SEND_HEAD =>
@@ -159,8 +195,10 @@ begin
    begin
       case PS is
          when RESET_LCD =>
+            reset_dir <= '1';
             lcd_reset_out <= '1';
          when others =>
+            reset_dir <= '0';
             lcd_reset_out <= '0';
       end case;
    end process lcd_reset_out_proc;
@@ -197,11 +235,11 @@ begin
    begin
       case PS is
          when RESET_GB =>
-            x_draw_out <= conv_unsigned()
-            y_draw_out <= conv_unsigned()
+            x_draw_out <= conv_unsigned(reset_x_idx,8);
+            y_draw_out <= conv_unsigned(reset_y_idx,8);
          when RESET_GB_SEND =>
-            x_draw_out <= conv_unsigned()
-            y_draw_out <= conv_unsigned()
+            x_draw_out <= conv_unsigned(reset_x_idx,8);
+            y_draw_out <= conv_unsigned(reset_y_idx,8);
          when RESET_SNAKE =>
             x_draw_out <= conv_unsigned(snake_array(reset_snake_idx)(0),8);
             y_draw_out <= conv_unsigned(snake_array(reset_snake_idx)(1),8);
@@ -232,10 +270,15 @@ begin
       end case;
    end process draw_coord_proc;
 
-  new_cycle_proc: process(sensitivity_list)
-  begin
-   
-  end process new_cycle_proc;
+   new_cycle_proc: process(sensitivity_list)
+   begin
+      case PS is
+         when MOVE_HEAD =>
+            new_cycle <= '1';
+         when others =>
+            new_cycle <= '0';
+      end case;
+   end process new_cycle_proc;
 
    NS_comb_proc : process(PS)
       variable snake_hit : std_logic := '0';
@@ -247,7 +290,7 @@ begin
          when RESET_LCD =>
             NS <= RESET_GB;
          when RESET_GB =>
-            if (reset_gb_idx > 383) then
+            if (reset_y_idx > 15) then
                NS <= RESET_SNAKE;
             else
                NS <= RESET_GB_SEND;
@@ -257,21 +300,16 @@ begin
          when RESET_GB_INC =>
             NS <= RESET_GB;
          when RESET_SNAKE =>
-            reset_dir <= '1';
             if (reset_snake_idx > snake_length) then
                NS <= NEW_FOOD;
             else
                NS <= RESET_SNAKE_SEND;
             end if;
          when RESET_SNAKE_SEND =>
-            send_draw_out <= '1';
-            lcd_reset_out <= '0';
             NS <= RESET_SNAKE_INC;
          when RESET_SNAKE_INC =>
             NS <= RESET_SNAKE;
          when MOVE_HEAD =>
-            reset_dir <= '0';
-            direction_changed <= '0';
             NS <= SEND_HEAD;
          when SEND_HEAD =>
             NS <= CHECK_HEAD;
@@ -313,9 +351,7 @@ begin
             NS <= NEW_FOOD_CHECK;
 
          when NEW_FOOD_CHECK =>
-            food_coord(0) <= conv_integer(food_x_in);
-            food_coord(1) <= conv_integer(food_y_in);
-
+            
             --Ensure the new food placement doesnt land on a snake part. Else, ask for a new one.
             food_hit := '0';
             food_collision_check_loop : for i in 0 to snake_length-1 loop
@@ -343,9 +379,9 @@ begin
                NS <= DELAY_INPUT;
             end if;
          when WIN =>
-            NS<=IDLE;
+            NS <= IDLE;
          when LOSE =>
-            NS<=IDLE;
+            NS <= IDLE;
          when others =>
             NS <= IDLE;
       end case;
