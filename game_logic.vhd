@@ -35,8 +35,8 @@ port (
     food_x_in : IN unsigned(7 downto 0);
     food_y_in : IN unsigned(7 downto 0);
 
-    x_draw_out : OUT   unsigned(7 downto 0) := x"00";
-    y_draw_out : OUT   unsigned(7 downto 0) := x"00";
+    x_draw_out : OUT   unsigned(7 downto 0);
+    y_draw_out : OUT   unsigned(7 downto 0);
     color_draw_out : OUT unsigned(1 downto 0);
     send_draw_out : OUT std_logic;
     lcd_reset_out : OUT std_logic;
@@ -55,6 +55,7 @@ architecture architecture_game_logic of game_logic is
    
    signal time_since_start_of_cycle : integer;
    signal button_pressed : std_logic;
+   signal new_cycle : std_logic;
 
    signal reset_x_idx : integer;
    signal reset_y_idx : integer;
@@ -100,8 +101,8 @@ begin
       --Set initial indices for game board and snake index
       reset_x_idx <= 0;
       reset_y_idx <= 0;
-      reset_x_temp_idx <= 0;
-      reset_y_temp_idx <= 0;
+      reset_x_temp_idx := 0;
+      reset_y_temp_idx := 0;
       reset_snake_idx <= 0;
       PS <= RESET_LCD;
 
@@ -210,7 +211,7 @@ begin
             send_draw_out <= '1';
          when RESET_SNAKE_SEND =>
             send_draw_out <= '1';
-         when HEAD_SEND =>
+         when SEND_HEAD =>
             send_draw_out <= '1';
          when ERASE_TAIL =>
             send_draw_out <= '1';
@@ -219,7 +220,7 @@ begin
          when others =>
             send_draw_out <= '0';
       end case;
-   end process send_draw_out_proc
+   end process send_draw_out_proc;
 
    new_food_out_proc: process(PS)
    begin
@@ -270,7 +271,7 @@ begin
       end case;
    end process draw_coord_proc;
 
-   new_cycle_proc: process(sensitivity_list)
+   new_cycle_proc: process(PS)
    begin
       case PS is
          when MOVE_HEAD =>
@@ -385,7 +386,7 @@ begin
          when others =>
             NS <= IDLE;
       end case;
-   end process comb_proc;
+   end process ns_comb_proc;
 
    direction_change_proc: process(PS,button_pressed,reset_dir,new_cycle)
    variable direction_idx : integer := 0;
