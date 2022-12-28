@@ -23,8 +23,8 @@ use IEEE.std_logic_arith.all;
 
 entity game_logic is
 generic (
-   time_to_wait : integer := 500000;
-   max_snake_length : integer := 20
+   time_to_wait : natural := 500000;
+   max_snake_length : natural := 20
 );
 port (
     --<port_name> : <direction> <type>;
@@ -53,16 +53,16 @@ architecture architecture_game_logic of game_logic is
    signal PS : state_type;
    signal NS : state_type;
    
-   signal time_since_start_of_cycle : integer;
+   signal time_since_start_of_cycle : natural;
    signal button_pressed : std_logic;
    signal new_cycle : std_logic;
 
-   signal reset_x_idx : integer;
-   signal reset_y_idx : integer;
-   signal reset_snake_idx : integer;
+   signal reset_x_idx : natural;
+   signal reset_y_idx : natural;
+   signal reset_snake_idx : natural;
    
    --Coordinates of everything
-   type coord_type is array(0 to 1) of integer;
+   type coord_type is array(0 to 1) of natural;
    type direction_list_type is array(0 to 3) of coord_type;
    constant UP : coord_type := (0,1);
    constant LEFT : coord_type := (-1,0);
@@ -76,7 +76,7 @@ architecture architecture_game_logic of game_logic is
    type snake_array_type is array(0 to max_snake_length-1) of coord_type;
    signal food_coord : coord_type;
    signal snake_array : snake_array_type;
-   signal snake_length : integer;
+   signal snake_length : natural;
 
    type snake_reset_array_type is array(0 to 2) of coord_type;
    constant snake_reset_array : snake_reset_array_type := ((3,3),(3,2),(3,1));
@@ -85,8 +85,8 @@ begin
    button_pressed <= button_l xor button_r;
 
    sync_proc: process(clk_in,button_s)
-      variable reset_x_temp_idx : integer := 0;
-      variable reset_y_temp_idx : integer := 0;
+      variable reset_x_temp_idx : natural := 0;
+      variable reset_y_temp_idx : natural := 0;
    begin
    --If the reset button is hit, start the reset process.
    if (button_s = '1') then
@@ -389,7 +389,7 @@ begin
    end process ns_comb_proc;
 
    direction_change_proc: process(PS,button_pressed,reset_dir,new_cycle)
-   variable direction_idx : integer := 0;
+   variable direction_idx : natural := 0;
    begin
       if (reset_dir = '1') then
          direction_idx := 0;

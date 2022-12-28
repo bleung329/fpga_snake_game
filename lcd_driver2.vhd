@@ -23,8 +23,8 @@ use IEEE.std_logic_arith.all;
 
 entity lcd_driver4 is
 generic (
-    g_init_instructions : integer := 8;
-    g_clk_div : integer := 65000
+    g_init_instructions : natural := 8;
+    g_clk_div : natural := 66000
 );
 port (
     x_in : IN unsigned(7 downto 0);
@@ -67,14 +67,14 @@ architecture architecture_lcd_driver4 of lcd_driver4 is
     constant init_mem : init_rom := ((x"01",x"00"),
                                     (x"11",x"00"),
                                     (x"36",x"00"),
-                                    (x"20",x"01"),
+                                    (x"60",x"01"),
                                     (x"3a",x"00"),
                                     (x"55",x"01"),
                                     (x"29",x"00"),
                                     (x"00",x"00"),
                                     (x"00",x"00"));
 
-    type pixel_mem is array (0 to 12) of mem_piece;
+    type pixel_mem is array(0 to 12) of mem_piece;
     signal send_mem : pixel_mem;
     signal send_mem_idx : unsigned(7 downto 0);
     signal bytes_sent : unsigned(15 downto 0);
@@ -102,7 +102,7 @@ begin
         variable start_page : unsigned(15 downto 0) := x"0000";
         variable end_page : unsigned(15 downto 0) := x"0000";
     begin
-        start_col := (conv_unsigned(23,8) - x_in) * conv_unsigned(20,8);
+        start_col := x_in * conv_unsigned(20,8);
         end_col := start_col + 20;
         start_page := y_in * conv_unsigned(20,8);
         end_page := start_page + 20;
@@ -116,12 +116,13 @@ begin
         send_mem(9) <= (end_page(7 downto 0),x"01");
     end process coord_set_proc;
 
-    --A cute little clock divider/selector
+    --A little internal clock divider/selector
+    --Awful practice but usable for now.
     with slow_clk_sel select
         sig_clk_in <= clk_in when '0', slow_clk when others;
 
     clk_maker_proc: process(clk_in)
-        variable clk_counter : integer;
+        variable clk_counter : natural;
     begin
         if rising_edge(clk_in) then
             clk_counter := clk_counter + 1;
@@ -162,7 +163,7 @@ begin
     end process state_sync_proc;
 
     state_comb_proc: process(PS,bytes_sent,send_in,send_mem,send_mem_idx,reset_in)
-        variable sm_idx : integer;
+        variable sm_idx : natural range 0 to 12;
     begin
         -- Just saves me some typing
         sm_idx := conv_integer(send_mem_idx);
@@ -177,7 +178,7 @@ begin
                 lcd_rst <= '1';
                 lcd_wr_buf <= '0';
                 lcd_ready_buf <= '0';
-                if (bytes_sent >= conv_unsigned(400,16)) then
+                if (bytes_sent > conv_unsigned(500,16)) then
                     NS <= SPAM_STOP;
                 else
                     NS <= WR;
