@@ -32,12 +32,12 @@ port (
     lcd_ready_in : IN  std_logic;
     clk_in : IN std_logic;
 
-    food_x_in : IN unsigned(7 downto 0);
-    food_y_in : IN unsigned(7 downto 0);
+    food_x_in : IN std_logic_vector(7 downto 0);
+    food_y_in : IN std_logic_vector(7 downto 0);
 
-    x_draw_out : OUT   unsigned(7 downto 0);
-    y_draw_out : OUT   unsigned(7 downto 0);
-    color_draw_out : OUT unsigned(1 downto 0);
+    x_draw_out : OUT   std_logic_vector(7 downto 0);
+    y_draw_out : OUT   std_logic_vector(7 downto 0);
+    color_draw_out : OUT std_logic_vector(1 downto 0);
     send_draw_out : OUT std_logic;
     lcd_reset_out : OUT std_logic;
     new_food_out : OUT std_logic
@@ -57,12 +57,12 @@ architecture architecture_game_logic of game_logic is
    signal button_pressed : std_logic;
    signal new_cycle : std_logic;
 
-   signal reset_x_idx : natural;
-   signal reset_y_idx : natural;
-   signal reset_snake_idx : natural;
+   signal reset_x_idx : natural range 0 to 24;
+   signal reset_y_idx : natural range 0 to 24;
+   signal reset_snake_idx : natural range 0 to max_snake_length;
    
    --Coordinates of everything
-   type coord_type is array(0 to 1) of natural;
+   type coord_type is array(0 to 1) of natural range 0 to 24;
    type direction_list_type is array(0 to 3) of coord_type;
    constant UP : coord_type := (0,1);
    constant LEFT : coord_type := (-1,0);
@@ -70,23 +70,26 @@ architecture architecture_game_logic of game_logic is
    constant DOWN : coord_type := (0,-1);
    constant direction_list : direction_list_type := (UP,LEFT,DOWN,RIGHT);
    signal direction : coord_type;
-   signal direction_changed : std_logic;
+   signal direction_idx : integer range -1 to 4 := 0;
+   signal direction_changed : std_logic := '0';
    signal reset_dir : std_logic;
    
    type snake_array_type is array(0 to max_snake_length-1) of coord_type;
    signal food_coord : coord_type;
    signal snake_array : snake_array_type;
-   signal snake_length : natural;
+   signal snake_length : natural range 0 to (max_snake_length);
+   signal snake_length_temp : natural range 0 to (max_snake_length-2);
 
    type snake_reset_array_type is array(0 to 2) of coord_type;
    constant snake_reset_array : snake_reset_array_type := ((3,3),(3,2),(3,1));
 
 begin
+   snake_length_temp <= max_snake_length-1;
    button_pressed <= button_l xor button_r;
 
    sync_proc: process(clk_in,button_s)
-      variable reset_x_temp_idx : natural := 0;
-      variable reset_y_temp_idx : natural := 0;
+      variable reset_x_temp_idx : natural range 0 to 24 := 0;
+      variable reset_y_temp_idx : natural range 0 to 24 := 0;
    begin
    --If the reset button is hit, start the reset process.
    if (button_s = '1') then
@@ -123,7 +126,7 @@ begin
 
          when MOVE_HEAD =>
             --Shift the array to the right 
-            snake_shift_loop: for i in 1 to snake_length loop
+            snake_shift_loop: for i in 1 to snake_length_temp loop
                snake_array(i+1) <= snake_array(i);
             end loop snake_shift_loop;
             --Calculate new head
@@ -132,13 +135,13 @@ begin
 
          when ADD_LENGTH =>
             snake_length <= snake_length + 1;
-         
+         when ERASE_TAIL =>
+            snake_array(snake_length-1) <= (0,0);
          when DELAY_INPUT =>
             time_since_start_of_cycle <= time_since_start_of_cycle + 1;
-
          when NEW_FOOD_CHECK =>
-            food_coord(0) <= conv_integer(food_x_in);
-            food_coord(1) <= conv_integer(food_y_in);
+            food_coord(0) <= conv_integer(unsigned(food_x_in));
+            food_coord(1) <= conv_integer(unsigned(food_y_in));
 
          when others =>
             time_since_start_of_cycle <= 0;
@@ -152,7 +155,7 @@ begin
    end if;
    end process sync_proc;
 
-   color_draw_out_proc: process(PS)
+   color_draw_out_proc: process(PS,reset_x_idx,reset_y_idx)
    begin
       case PS is
          when RESET_GB =>
@@ -232,33 +235,33 @@ begin
       end case;
    end process new_food_out_proc;
 
-   draw_coord_proc: process(PS)
+   draw_coord_proc: process(PS,reset_x_idx,reset_y_idx,snake_length,food_x_in,food_y_in,reset_snake_idx)
    begin
       case PS is
          when RESET_GB =>
-            x_draw_out <= conv_unsigned(reset_x_idx,8);
-            y_draw_out <= conv_unsigned(reset_y_idx,8);
+            x_draw_out <= conv_std_logic_vector(reset_x_idx,8);
+            y_draw_out <= conv_std_logic_vector(reset_y_idx,8);
          when RESET_GB_SEND =>
-            x_draw_out <= conv_unsigned(reset_x_idx,8);
-            y_draw_out <= conv_unsigned(reset_y_idx,8);
+            x_draw_out <= conv_std_logic_vector(reset_x_idx,8);
+            y_draw_out <= conv_std_logic_vector(reset_y_idx,8);
          when RESET_SNAKE =>
-            x_draw_out <= conv_unsigned(snake_array(reset_snake_idx)(0),8);
-            y_draw_out <= conv_unsigned(snake_array(reset_snake_idx)(1),8);
+            x_draw_out <= conv_std_logic_vector(snake_array(reset_snake_idx)(0),8);
+            y_draw_out <= conv_std_logic_vector(snake_array(reset_snake_idx)(1),8);
          when RESET_SNAKE_SEND =>
-            x_draw_out <= conv_unsigned(snake_array(reset_snake_idx)(0),8);
-            y_draw_out <= conv_unsigned(snake_array(reset_snake_idx)(1),8);
+            x_draw_out <= conv_std_logic_vector(snake_array(reset_snake_idx)(0),8);
+            y_draw_out <= conv_std_logic_vector(snake_array(reset_snake_idx)(1),8);
          when MOVE_HEAD =>
-            x_draw_out <= conv_unsigned(snake_array(0)(0),8);
-            y_draw_out <= conv_unsigned(snake_array(0)(1),8);
+            x_draw_out <= conv_std_logic_vector(snake_array(0)(0),8);
+            y_draw_out <= conv_std_logic_vector(snake_array(0)(1),8);
          when SEND_HEAD =>
-            x_draw_out <= conv_unsigned(snake_array(0)(0),8);
-            y_draw_out <= conv_unsigned(snake_array(0)(1),8);
+            x_draw_out <= conv_std_logic_vector(snake_array(0)(0),8);
+            y_draw_out <= conv_std_logic_vector(snake_array(0)(1),8);
          when CHECK_HEAD =>
-            x_draw_out <= conv_unsigned(snake_array(snake_length-1)(0),8);
-            y_draw_out <= conv_unsigned(snake_array(snake_length-1)(1),8);
+            x_draw_out <= conv_std_logic_vector(snake_array(snake_length-1)(0),8);
+            y_draw_out <= conv_std_logic_vector(snake_array(snake_length-1)(1),8);
          when ERASE_TAIL =>
-            x_draw_out <= conv_unsigned(snake_array(snake_length-1)(0),8);
-            y_draw_out <= conv_unsigned(snake_array(snake_length-1)(1),8);
+            x_draw_out <= conv_std_logic_vector(snake_array(snake_length-1)(0),8);
+            y_draw_out <= conv_std_logic_vector(snake_array(snake_length-1)(1),8);
          when NEW_FOOD_CHECK =>
             x_draw_out <= food_x_in;
             y_draw_out <= food_y_in;
@@ -281,9 +284,10 @@ begin
       end case;
    end process new_cycle_proc;
 
-   NS_comb_proc : process(PS)
+   NS_comb_proc : process(PS,snake_array,food_coord,food_x_in,food_y_in)
       variable snake_hit : std_logic := '0';
       variable food_hit : std_logic := '0';
+      
    begin
       case PS is
          when IDLE =>
@@ -317,7 +321,7 @@ begin
          when CHECK_HEAD =>
             --Check if there are collisions
             snake_hit := '0';
-            snake_collision_check_loop : for i in 1 to snake_length-1 loop
+            snake_collision_check_loop : for i in 1 to snake_length_temp loop
                --TODO: Can we possibly forgo the latter statement?
                if (snake_array(0)(0) = snake_array(i)(0) and 
                   snake_array(0)(1) = snake_array(i)(1)) then
@@ -355,9 +359,9 @@ begin
             
             --Ensure the new food placement doesnt land on a snake part. Else, ask for a new one.
             food_hit := '0';
-            food_collision_check_loop : for i in 0 to snake_length-1 loop
-               if (conv_integer(food_x_in) = snake_array(i)(0) and 
-                  conv_integer(food_y_in) = snake_array(i)(1)) then
+            food_collision_check_loop : for i in 0 to snake_length_temp loop
+               if (conv_integer(unsigned(food_x_in)) = snake_array(i)(0) and 
+                  conv_integer(unsigned(food_y_in)) = snake_array(i)(1)) then
                   food_hit := food_hit or '1';
                else
                   food_hit := food_hit or '0';
@@ -386,30 +390,34 @@ begin
          when others =>
             NS <= IDLE;
       end case;
-   end process ns_comb_proc;
-
+   end process NS_comb_proc;
+   
    direction_change_proc: process(PS,button_pressed,reset_dir,new_cycle)
-   variable direction_idx : natural := 0;
    begin
       if (reset_dir = '1') then
-         direction_idx := 0;
+         direction_idx <= 0;
+         direction_changed <= '0';
       elsif (new_cycle = '1') then
          direction_changed <= '0';
-      elsif (rising_edge(button_pressed) and PS = DELAY_INPUT and direction_changed = '0') then 
+      elsif (rising_edge(button_pressed) and 
+            PS = DELAY_INPUT and 
+            direction_changed = '0') then 
+         direction_changed <= '1';
          if (button_r = '1') then
-            direction_idx := direction_idx + 1;
-            if (direction_idx > 3) then
-               direction_idx := 0;
+            if (direction_idx < 3) then
+               direction_idx <= direction_idx + 1;
+            else
+               direction_idx <= 0;
             end if;
          elsif (button_l = '1') then
-            direction_idx := direction_idx - 1;
-            if (direction_idx < 0) then
-               direction_idx := 3;
+            if (direction_idx > 0) then
+               direction_idx <= direction_idx - 1; 
+            else
+               direction_idx <= 3;
             end if;
          end if;
-         direction_changed <= '1';
       end if;
-   direction <= direction_list(direction_idx);
    end process direction_change_proc;
+   direction <= direction_list(direction_idx);
 
 end architecture_game_logic;

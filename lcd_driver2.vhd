@@ -76,8 +76,8 @@ architecture architecture_lcd_driver4 of lcd_driver4 is
 
     type pixel_mem is array(0 to 12) of mem_piece;
     signal send_mem : pixel_mem;
-    signal send_mem_idx : unsigned(7 downto 0);
-    signal bytes_sent : unsigned(15 downto 0);
+    signal send_mem_idx : natural range 0 to 12;
+    signal bytes_sent : natural range 0 to 600;
     signal lcd_wr_buf : std_logic;
     signal lcd_ready_buf : std_logic;
     signal slow_clk_sel : std_logic;
@@ -136,18 +136,18 @@ begin
     begin    
         if (reset_in = '1' and PS /= SPAM_STOP) then
             -- Start the startup sequence and swap the clock to the super slow one. Switch it back when you're done.
-            send_mem_idx <= x"00";
+            send_mem_idx <= 0;
             PS <= LD_INIT;
         elsif rising_edge(sig_clk_in) then
             if ((send_in = '1') and (PS = IDLE)) then
-                send_mem_idx <= x"00";
-                bytes_sent <= x"0000";
+                send_mem_idx <= 0;
+                bytes_sent <= 0;
                 PS <= LD;
             else
                 if (PS = WR) then 
                     if (send_mem_idx = 12) then
                         bytes_sent <= bytes_sent + 1;
-                        send_mem_idx <= conv_unsigned(11,8);
+                        send_mem_idx <= 11;
                     else
                         send_mem_idx <= send_mem_idx + 1;
                     end if;
@@ -163,15 +163,13 @@ begin
     end process state_sync_proc;
 
     state_comb_proc: process(PS,bytes_sent,send_in,send_mem,send_mem_idx,reset_in)
-        variable sm_idx : natural range 0 to 12;
     begin
         -- Just saves me some typing
-        sm_idx := conv_integer(send_mem_idx);
         case PS is
             when LD =>
                 slow_clk_sel <= '0';
-                lcd_d <= std_logic_vector(send_mem(sm_idx)(0));
-                lcd_dcx <= std_logic(send_mem(sm_idx)(1)(0));
+                lcd_d <= std_logic_vector(send_mem(send_mem_idx)(0));
+                lcd_dcx <= std_logic(send_mem(send_mem_idx)(1)(0));
                 led1_debug <= '0';
                 led2_debug <= '1';
                 led3_debug <= '1';
@@ -186,8 +184,8 @@ begin
 
             when WR =>
                 slow_clk_sel <= '0';
-                lcd_d <= std_logic_vector(send_mem(sm_idx)(0));
-                lcd_dcx <= std_logic(send_mem(sm_idx)(1)(0));
+                lcd_d <= std_logic_vector(send_mem(send_mem_idx)(0));
+                lcd_dcx <= std_logic(send_mem(send_mem_idx)(1)(0));
                 led1_debug <= '0';
                 led2_debug <= '1';
                 led3_debug <= '1';
@@ -214,15 +212,15 @@ begin
 
             when LD_INIT =>
                 slow_clk_sel <= '1';
-                lcd_d <= std_logic_vector(init_mem(sm_idx)(0));
-                lcd_dcx <= std_logic(init_mem(sm_idx)(1)(0));
+                lcd_d <= std_logic_vector(init_mem(send_mem_idx)(0));
+                lcd_dcx <= std_logic(init_mem(send_mem_idx)(1)(0));
                 led1_debug <= '1';
                 led2_debug <= '1';
                 led3_debug <= '0';
                 lcd_wr_buf <= '0';
                 lcd_rst <= '1';
                 lcd_ready_buf <= '0';
-                if (sm_idx >= g_init_instructions) then
+                if (send_mem_idx >= g_init_instructions) then
                     NS <= SPAM_STOP;
                 else
                     NS <= WR_INIT;
@@ -230,8 +228,8 @@ begin
                 
             when WR_INIT =>
                 slow_clk_sel <= '1';
-                lcd_d <= std_logic_vector(init_mem(sm_idx)(0));
-                lcd_dcx <= std_logic(init_mem(sm_idx)(1)(0));
+                lcd_d <= std_logic_vector(init_mem(send_mem_idx)(0));
+                lcd_dcx <= std_logic(init_mem(send_mem_idx)(1)(0));
                 led1_debug <= '1';
                 led2_debug <= '1';
                 led3_debug <= '0';
