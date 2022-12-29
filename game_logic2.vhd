@@ -143,12 +143,26 @@ begin
     
     game_sync_proc: process(clk_in,button_r)
     begin
-        if rising_edge(clk_in) then
-            if (button_r = '1') then
-                PSG <= RESET_LCD;
-            else
-                PSG <= NSG;
-            end if;
+        if (button_r = '1') then
+            PSG <= RESET_LCD;
+        elsif rising_edge(clk_in) then
+            case PSG is
+                when RESET_SNAKE =>
+                    snake_length <= 3;
+                when MOVE_HEAD =>
+                    --Shift the array to the right 
+                    snake_shift_loop: for i in 1 to snake_length_temp loop
+                        snake_array(i+1) <= snake_array(i);
+                    end loop snake_shift_loop;
+                    --Calculate new head
+                    snake_array(0)(0) <= snake_array(0)(0) + direction(0);
+                    snake_array(0)(1) <= snake_array(0)(1) + direction(1);
+                when ADD_LENGTH =>
+                    snake_length <= snake_length + 1;
+                when others =>
+
+            end case;
+            PSG <= NSG;
         end if;
     end process game_sync_proc;
 
