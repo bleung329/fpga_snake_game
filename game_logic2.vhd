@@ -61,7 +61,6 @@ architecture architecture_game_logic_2 of game_logic_2 is
    signal button_pressed : std_logic;
    signal new_cycle : std_logic;
 
-   signal reset_snake_idx : natural range 0 to max_snake_length;
    
    --Coordinates of everything
    type game_board_type is array(0 to 23, 0 to 15) of std_logic_vector(1 downto 0);
@@ -84,7 +83,7 @@ architecture architecture_game_logic_2 of game_logic_2 is
    signal direction_idx : integer range -1 to 4 := 0;
    signal direction_changed : std_logic := '0';
    signal reset_dir : std_logic;
-   
+
    type snake_array_type is array(0 to max_snake_length-1) of coord_type;
    signal food_coord : coord_type;
    signal snake_array : snake_array_type;
@@ -92,7 +91,7 @@ architecture architecture_game_logic_2 of game_logic_2 is
    signal snake_length_temp : natural range 0 to (max_snake_length-2);
 
    type snake_reset_array_type is array(0 to 2) of coord_type;
-   constant snake_reset_array : snake_reset_array_type := ((3,3),(3,2),(3,1));
+   signal snake_reset_array : snake_reset_array_type := ((3,3),(3,2),(3,1));
 
 begin
 
@@ -146,10 +145,37 @@ begin
         if (button_r = '1') then
             PSG <= RESET_LCD;
         elsif rising_edge(clk_in) then
+            --The snake
+            for i in 0 to max_snake_length-1 loop
+                game_board(snake_array(i)(0),snake_array(i)(1)) <= GREEN;
+            end loop;
+            
+            --The fruit
+            game_board(food_coord(0),food_coord(1)) <= RED;
+
             case PSG is
                 when RESET_SNAKE =>
                     snake_length <= 3;
+                    -- Reset game board
+                    for i in 0 to 23 loop
+                        for j in 0 to 15 loop
+                            if (i = 0 or i = 23 or j = 0 or j = 15) then
+                                game_board(i,j) <= BLUE;
+                            else
+                                game_board(i,j) <= BLACK;
+                            end if;
+                        end loop;
+                    end loop;
+                    --Reset snake array
+                    for i in 0 to 2 loop
+                        snake_array(i) <= snake_reset_array(i);
+                    end loop;
+                    --Zero fill the rest of the snake array
+                    for i in 3 to max_snake_length-1 loop
+                        snake_array(i) <= (0,0);
+                    end loop;
                 when MOVE_HEAD =>
+                
                     time_since_start_of_cycle <= 0;
                     --Shift the array to the right 
                     snake_shift_loop: for i in 1 to snake_length_temp loop
@@ -177,39 +203,14 @@ begin
     begin
         
         -- Constantly ensure the snake array values are reflected in the game board.
-        for i in 0 to max_snake_length-1 loop
-            game_board(snake_array(i)(0),snake_array(i)(1)) <= GREEN;
-        end loop;
         
-        --The fruit
-        game_board(food_coord(0),food_coord(1)) <= RED;
         
         case PSG is
             when IDLE =>
                 NSG <= IDLE;
             when RESET_LCD =>
-                NSG <= RESET_GB;
-            when RESET_GB =>
-                -- Fill game board with the original game board pixels
-                for i in 0 to 23 loop
-                    for j in 0 to 15 loop
-                        if (i = 0 or i = 23 or j = 0 or j = 15) then
-                            game_board(i,j) <= BLUE;
-                        else
-                            game_board(i,j) <= BLACK;
-                        end if;
-                    end loop;
-                end loop;
                 NSG <= RESET_SNAKE;
             when RESET_SNAKE =>
-                --Reset snake array
-                for i in 0 to 2 loop
-                    snake_array(i) <= snake_reset_array(i);
-                end loop;
-                --Zero fill the rest of the snake array
-                for i in 3 to max_snake_length-1 loop
-                    snake_array(i) <= (0,0);
-                end loop;
                 NSG <= NEW_FOOD;
             when MOVE_HEAD =>
                 NSG <= CHECK_HEAD;
@@ -248,6 +249,7 @@ begin
                 NSG <= NEW_FOOD;
 
             when NEW_FOOD =>
+                --Note: A New food req signal is sent in the new_food_send_out process
                 NSG <= NEW_FOOD_CHECK;
 
             when NEW_FOOD_CHECK =>
@@ -283,9 +285,9 @@ begin
         end case;
     end process game_comb_proc;
 
-    new_food_out_proc: process(PS)
+    new_food_out_proc: process(PSG)
     begin
-        case PS is
+        case PSG is
             when NEW_FOOD =>
                 new_food_out <= '1';
             when others =>
@@ -293,9 +295,9 @@ begin
         end case;
     end process new_food_out_proc;
 
-    lcd_reset_out_proc: process(PS)
+    lcd_reset_out_proc: process(PSG)
     begin
-        case PS is
+        case PSG is
             when RESET_LCD =>
                 reset_dir <= '1';
                 lcd_reset_out <= '1';
@@ -305,32 +307,40 @@ begin
         end case;
     end process lcd_reset_out_proc;
 
-    direction_change_proc: process(PS,button_pressed,reset_dir,new_cycle)
+    left_button_check_proc: process(button_l,new_cycle)
     begin
-        if (reset_dir = '1') then
+        if (new_cycle = '1') then
+            direction_idx <= 1;
+        elsif rising_edge(button_l) then
             direction_idx <= 0;
-            direction_changed <= '0';
-        elsif (new_cycle = '1') then
-            direction_changed <= '0';
-        elsif (rising_edge(button_pressed) and 
-                PS = DELAY_INPUT and 
-                direction_changed = '0') then 
-            direction_changed <= '1';
-            if (button_r = '1') then
-                if (direction_idx < 3) then
-                direction_idx <= direction_idx + 1;
-                else
-                direction_idx <= 0;
-                end if;
-            elsif (button_l = '1') then
-                if (direction_idx > 0) then
-                direction_idx <= direction_idx - 1; 
-                else
-                direction_idx <= 3;
-                end if;
-            end if;
         end if;
-    end process direction_change_proc;
+    end process left_button_check_proc;
+    -- direction_change_proc: process(PSG,button_pressed,reset_dir,new_cycle)
+    -- begin
+    --     if (reset_dir = '1') then
+    --         direction_idx <= 0;
+    --         direction_changed <= '0';
+    --     elsif (new_cycle = '1') then
+    --         direction_changed <= '0';
+    --     elsif (rising_edge(button_pressed) and 
+    --             PS = DELAY_INPUT and 
+    --             direction_changed = '0') then 
+    --         direction_changed <= '1';
+    --         if (button_r = '1') then
+    --             if (direction_idx < 3) then
+    --             direction_idx <= direction_idx + 1;
+    --             else
+    --             direction_idx <= 0;
+    --             end if;
+    --         elsif (button_l = '1') then
+    --             if (direction_idx > 0) then
+    --             direction_idx <= direction_idx - 1; 
+    --             else
+    --             direction_idx <= 3;
+    --             end if;
+    --         end if;
+    --     end if;
+    -- end process direction_change_proc;
     direction <= direction_list(direction_idx);
 
 end architecture_game_logic_2;
