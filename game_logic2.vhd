@@ -46,9 +46,11 @@ end game_logic_2;
 
 architecture architecture_game_logic_2 of game_logic_2 is
    --Split RESET into RESET_LCD, RESET_GB, RESET_SNAKE, NEW_FOOD
-   type game_state_type is (IDLE, RESET_LCD, RESET_SNAKE, 
-                            CHANGE_DIR ,MOVE_HEAD, CHECK_HEAD, ERASE_TAIL, 
-                            ADD_LENGTH, NEW_FOOD, NEW_FOOD_CHECK, 
+   type game_state_type is (IDLE, 
+                            RESET_LCD, RESET_SNAKE, 
+                            CHANGE_DIR, SHIFT_SNAKE, MOVE_HEAD, 
+                            CHECK_HEAD, ERASE_TAIL, ADD_LENGTH, 
+                            NEW_FOOD, NEW_FOOD_CHECK, 
                             DELAY_INPUT, WIN, LOSE);
    signal PSG : game_state_type;
    signal NSG : game_state_type;
@@ -63,8 +65,6 @@ architecture architecture_game_logic_2 of game_logic_2 is
    signal r_pressed : std_logic;
    signal l_pressed : std_logic;
 
-   
-   --Coordinates of everything
    type game_board_type is array(0 to 23, 0 to 15) of std_logic_vector(1 downto 0);
    signal game_board : game_board_type;
    constant RED : std_logic_vector(1 downto 0) := "00";
@@ -72,7 +72,6 @@ architecture architecture_game_logic_2 of game_logic_2 is
    constant BLUE : std_logic_vector(1 downto 0) := "10";
    constant BLACK : std_logic_vector(1 downto 0) := "11";
    
-
    type coord_type is array(0 to 1) of natural range 0 to 23;
    type direction_list_type is array(0 to 3) of coord_type;
    constant UP : coord_type := (0,1);
@@ -85,17 +84,16 @@ architecture architecture_game_logic_2 of game_logic_2 is
    signal direction_idx : integer range 0 to 3;
    signal reset_dir : std_logic;
 
-   type snake_array_type is array(0 to max_snake_length-1) of coord_type;
    signal food_coord : coord_type;
+
+   type snake_array_type is array(0 to max_snake_length-1) of coord_type;
    signal snake_array : snake_array_type;
-   signal snake_length : natural range 0 to (max_snake_length);
-   constant snake_length_temp : natural := max_snake_length-1;
+   signal snake_length : natural range 0 to max_snake_length;
 
    type snake_reset_array_type is array(0 to 2) of coord_type;
    signal snake_reset_array : snake_reset_array_type := ((3,3),(3,2),(3,1));
 
 begin
-
     display_sync_proc : process(clk_in,button_s,lcd_ready_in)
         variable x_idx : natural range 0 to 23;
         variable y_idx : natural range 0 to 15;
@@ -148,14 +146,11 @@ begin
     begin
         if (button_s = '1') then
             PSG <= RESET_LCD;
-        elsif rising_edge(clk_in) then
-            
-            
+        elsif rising_edge(clk_in) then         
             case PSG is
                 when RESET_SNAKE =>
                     snake_length <= 3;
-                    -- Reset game board
-                    --Reset snake array
+                    --Initialize snake stuff
                     for i in 0 to 2 loop
                         snake_array(i) <= snake_reset_array(i);
                     end loop;
@@ -163,6 +158,11 @@ begin
                     for i in 3 to max_snake_length-1 loop
                         snake_array(i) <= (0,0);
                     end loop;
+                when SHIFT_SNAKE =>
+                    --Shift the array back  
+                    snake_shift_loop: for i in 0 to max_snake_length-2 loop
+                        snake_array(i+1) <= snake_array(i);
+                    end loop snake_shift_loop;
                 when MOVE_HEAD =>
                     for i in 0 to 23 loop
                         for j in 0 to 15 loop
@@ -173,27 +173,23 @@ begin
                             end if;
                         end loop;
                     end loop;
-                    time_since_start_of_cycle <= 0;
-                    --Shift the array to the right 
-                    snake_shift_loop: for i in 1 to max_snake_length-2 loop
-                        snake_array(i+1) <= snake_array(i);
-                    end loop snake_shift_loop;
+                    
                     --Calculate new head
                     snake_array(0)(0) <= snake_array(0)(0) + direction(0);
                     snake_array(0)(1) <= snake_array(0)(1) + direction(1);
+                    time_since_start_of_cycle <= 0;
+
                 when CHECK_HEAD =>
-                    --The snake
-                    
+                    --Send the snake pixels to the game board
                     for i in 0 to max_snake_length-1 loop
                         game_board(snake_array(i)(0),snake_array(i)(1)) <= GREEN;
                     end loop;
-                    --Food
+                    --Send the food pixel to the game board
                     game_board(food_coord(0),food_coord(1)) <= RED;
                 when ADD_LENGTH =>
                     snake_length <= snake_length + 1;
                 when ERASE_TAIL =>
-                    snake_array(snake_length-1) <= (0,0);
-                    
+                    snake_array(snake_length) <= (0,0);
                 when DELAY_INPUT =>
                     time_since_start_of_cycle <= time_since_start_of_cycle + 1;
                 when LOSE =>    
@@ -203,7 +199,7 @@ begin
                         end loop;
                     end loop;
                 when others =>
-
+                    --Do nothing
             end case;
             PSG <= NSG;
         end if;
@@ -224,13 +220,15 @@ begin
             when RESET_SNAKE =>
                 NSG <= NEW_FOOD;
             when CHANGE_DIR =>
+                NSG <= SHIFT_SNAKE;
+            when SHIFT_SNAKE =>
                 NSG <= MOVE_HEAD;
             when MOVE_HEAD =>
                 NSG <= CHECK_HEAD;
             when CHECK_HEAD =>
                 --Check if there are collisions
                 snake_hit := '0';
-                snake_collision_check_loop : for i in 1 to snake_length_temp loop
+                snake_collision_check_loop : for i in 1 to max_snake_length-1 loop
                     --TODO: Can we possibly forgo the latter statement?
                     if (snake_array(0)(0) = snake_array(i)(0) and 
                         snake_array(0)(1) = snake_array(i)(1)) then
