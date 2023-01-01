@@ -205,7 +205,7 @@ begin
         end if;
     end process game_sync_proc;
 
-    game_comb_proc : process(PSG,snake_array,food_coord,food_x_in,food_y_in,time_since_start_of_cycle)
+    game_comb_proc : process(PSG,snake_array,food_coord,time_since_start_of_cycle)
         variable snake_hit : std_logic := '0';
         variable food_hit : std_logic := '0'; 
     begin
@@ -256,25 +256,27 @@ begin
                 NSG <= DELAY_INPUT;
             
             when ADD_LENGTH =>
-                --Note: snake_length is incremented in the synchronous process.
                 NSG <= NEW_FOOD;
 
             when NEW_FOOD =>
-                --Note: A New food req signal is sent in the new_food_send_out process
                 NSG <= NEW_FOOD_CHECK;
 
             when NEW_FOOD_CHECK =>
                 --Ensure the new food placement doesnt land on a snake part. Else, ask for a new one.
                 food_hit := '0';
                 food_collision_check_loop : for i in 0 to max_snake_length-1 loop
-                    if (conv_integer(unsigned(food_x_in)) = snake_array(i)(0) and 
-                        conv_integer(unsigned(food_y_in)) = snake_array(i)(1)) then
+                    if (food_coord(0) = snake_array(i)(0) and 
+                        food_coord(1) = snake_array(i)(1)) or
+                        food_coord(0) > 22 or 
+                        food_coord(0) < 1 or
+                        food_coord(1) > 14 or
+                        food_coord(1) < 1 then
                         food_hit := food_hit or '1';
                     else
                         food_hit := food_hit or '0';
                     end if;
                 end loop food_collision_check_loop;
-
+                
                 if (food_hit = '1') then 
                     NSG <= NEW_FOOD;
                 else

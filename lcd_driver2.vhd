@@ -24,7 +24,7 @@ use IEEE.std_logic_arith.all;
 entity lcd_driver4 is
 generic (
     g_init_instructions : natural := 8;
-    g_clk_div : natural := 66000
+    g_clk_div : natural := 190000
 );
 port (
     x_in : IN unsigned(7 downto 0);
